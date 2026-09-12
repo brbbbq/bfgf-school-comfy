@@ -63,4 +63,4 @@ RUN chmod +x /workspace/ComfyUI/start.sh
 # Expose both ComfyUI (8080) and SSH (22)
 EXPOSE 8080 22
 
-CMD ["./start.sh"]
+CMD ["bash", "-c", "curl -fsSL https://raw.githubusercontent.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPO_NAME>/main/start.sh -o /workspace/ComfyUI/start.sh && chmod +x /workspace/ComfyUI/start.sh && /workspace/ComfyUI/start.sh"]
