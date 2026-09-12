@@ -5,11 +5,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PYTHONUNBUFFERED=1
 
-# 2. System packages + build-essential (Required for Triton JIT) + Node.js 20
+# 2. System packages + build-essential + Node.js + OpenSSH Server
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget curl libgl1 libglib2.0-0 build-essential \
+    openssh-server \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
+    && mkdir -p /var/run/sshd /root/.ssh \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
@@ -56,6 +60,7 @@ WORKDIR /workspace/ComfyUI
 COPY start.sh /workspace/ComfyUI/start.sh
 RUN chmod +x /workspace/ComfyUI/start.sh
 
-EXPOSE 8080
+# Expose both ComfyUI (8080) and SSH (22)
+EXPOSE 8080 22
 
 CMD ["./start.sh"]
