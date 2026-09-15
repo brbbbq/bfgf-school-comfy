@@ -10,92 +10,79 @@ mkdir -p /workspace/ComfyUI/models/diffusion_models \
          /workspace/ComfyUI/models/vae \
          /workspace/ComfyUI/models/loras
 
-# 3. Download Hugging Face Models via Python API
-# (Skips automatically if files already exist on disk)
-python3 -u - << 'EOF'
-import os, shutil
-from huggingface_hub import hf_hub_download
+# Helper function for fast multi-threaded downloads via aria2c
+download_file() {
+    local url="$1"
+    local dir="$2"
+    local filename="$3"
+    local auth_header="$4"
 
-token = os.environ.get('HF_TOKEN')
-models_dir = "/workspace/ComfyUI/models"
+    if [ -f "$dir/$filename" ]; then
+        echo "--> [Skipped] $filename already exists."
+    else
+        echo "--> Downloading $filename via aria2c (16 parallel connections)..."
+        if [ -n "$auth_header" ]; then
+            aria2c -x 16 -s 16 -k 1M --header="$auth_header" -d "$dir" -o "$filename" "$url"
+        else
+            aria2c -x 16 -s 16 -k 1M -d "$dir" -o "$filename" "$url"
+        fi
+    fi
+}
 
-# 1. FLUX.2 Klein 9B FP8
-flux_path = os.path.join(models_dir, "diffusion_models/flux-2-klein-9b-fp8.safetensors")
-if not os.path.exists(flux_path):
-    print("--> [1/4] Downloading FLUX.2 Klein 9B FP8...", flush=True)
-    hf_hub_download(
-        repo_id='black-forest-labs/FLUX.2-klein-9b-fp8',
-        filename='flux-2-klein-9b-fp8.safetensors',
-        local_dir=os.path.join(models_dir, "diffusion_models"),
-        token=token
-    )
-else:
-    print("--> FLUX.2 Klein 9B already exists. Skipping.")
+HF_AUTH=""
+if [ -n "$HF_TOKEN" ]; then
+    HF_AUTH="Authorization: Bearer $HF_TOKEN"
+fi
 
-# 2. Qwen 3 Text Encoder
-qwen_path = os.path.join(models_dir, "text_encoders/qwen_3_8b_fp8mixed.safetensors")
-if not os.path.exists(qwen_path):
-    print("--> [2/4] Downloading Qwen 3 Text Encoder...", flush=True)
-    downloaded = hf_hub_download(
-        repo_id='Comfy-Org/vae-text-encorder-for-flux-klein-9b',
-        filename='split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors',
-        token=token
-    )
-    shutil.copy(downloaded, qwen_path)
-else:
-    print("--> Qwen 3 Text Encoder already exists. Skipping.")
+# 3. Fast Parallel Downloads for Hugging Face Models
+# [1/4] FLUX.2 Klein 9B FP8
+download_file \
+    "https://huggingface.co/black-forest-labs/FLUX.2-klein-9b-fp8/resolve/main/flux-2-klein-9b-fp8.safetensors" \
+    "/workspace/ComfyUI/models/diffusion_models" \
+    "flux-2-klein-9b-fp8.safetensors" \
+    "$HF_AUTH"
 
-# 3. FLUX.2 VAE
-vae_path = os.path.join(models_dir, "vae/flux2-vae.safetensors")
-if not os.path.exists(vae_path):
-    print("--> [3/4] Downloading FLUX.2 VAE...", flush=True)
-    downloaded = hf_hub_download(
-        repo_id='Comfy-Org/flux2-dev',
-        filename='split_files/vae/flux2-vae.safetensors',
-        token=token
-    )
-    shutil.copy(downloaded, vae_path)
-else:
-    print("--> FLUX.2 VAE already exists. Skipping.")
+# [2/4] Qwen 3 Text Encoder
+download_file \
+    "https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-9b/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors" \
+    "/workspace/ComfyUI/models/text_encoders" \
+    "qwen_3_8b_fp8mixed.safetensors" \
+    "$HF_AUTH"
 
-# 4. Klein Consistency LoRA
-lora_path = os.path.join(models_dir, "loras/Klein-consistency.safetensors")
-if not os.path.exists(lora_path):
-    print("--> [4/4] Downloading Klein Consistency LoRA...", flush=True)
-    hf_hub_download(
-        repo_id='dx8152/Flux2-Klein-9B-Consistency',
-        filename='Klein-consistency.safetensors',
-        local_dir=os.path.join(models_dir, "loras"),
-        token=token
-    )
-else:
-    print("--> Klein Consistency LoRA already exists. Skipping.")
-EOF
+# [3/4] FLUX.2 VAE
+download_file \
+    "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors" \
+    "/workspace/ComfyUI/models/vae" \
+    "flux2-vae.safetensors" \
+    "$HF_AUTH"
 
-# 4. Download Civitai Pulpkhor LoRA with Token Support & Size Validation
+# [4/4] Klein Consistency LoRA
+download_file \
+    "https://huggingface.co/dx8152/Flux2-Klein-9B-Consistency/resolve/main/Klein-consistency.safetensors" \
+    "/workspace/ComfyUI/models/loras" \
+    "Klein-consistency.safetensors" \
+    "$HF_AUTH"
+
+# 4. Download Civitai Pulpkhor LoRA with aria2c
 PULPKHOR_FILE="/workspace/ComfyUI/models/loras/flux2-klein-9b-retro-comic-pulpkhor.safetensors"
-
 if [ ! -f "$PULPKHOR_FILE" ]; then
-    echo "--> [5/5] Downloading Pulpkhor LoRA from Civitai..."
-    
+    echo "--> Downloading Pulpkhor LoRA from Civitai via aria2c..."
     CIVITAI_URL="https://civitai.com/api/download/models/2713511"
     if [ -n "$CIVITAI_TOKEN" ]; then
         CIVITAI_URL="${CIVITAI_URL}?token=${CIVITAI_TOKEN}"
     fi
 
-    curl -L -A "Mozilla/5.0" "$CIVITAI_URL" -o "$PULPKHOR_FILE"
+    aria2c -x 16 -s 16 -k 1M -U "Mozilla/5.0" -d "/workspace/ComfyUI/models/loras" -o "flux2-klein-9b-retro-comic-pulpkhor.safetensors" "$CIVITAI_URL"
 
-    # Validation: Real LoRA is ~70-80 MB. If less than 1 MB, it's an error page.
     FILESIZE=$(stat -c%s "$PULPKHOR_FILE" 2>/dev/null || echo 0)
     if [ "$FILESIZE" -lt 1000000 ]; then
-        echo "WARNING: Civitai download returned an authentication/login error (size: ${FILESIZE} bytes)."
-        echo "Please provide CIVITAI_TOKEN in Vast environment variables to download restricted models."
+        echo "WARNING: Civitai download returned an authentication error (size: ${FILESIZE} bytes)."
         rm -f "$PULPKHOR_FILE"
     else
         echo "Civitai Pulpkhor LoRA verified successfully (${FILESIZE} bytes)."
     fi
 else
-    echo "--> Pulpkhor LoRA already exists. Skipping."
+    echo "--> [Skipped] Pulpkhor LoRA already exists."
 fi
 
 # 5. Launch ComfyUI

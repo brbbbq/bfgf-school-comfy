@@ -5,10 +5,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PYTHONUNBUFFERED=1
 
-# 2. System packages + build-essential + Node.js + OpenSSH Server
+# 2. System packages + build-essential + Node.js + OpenSSH Server + aria2
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget curl libgl1 libglib2.0-0 build-essential \
-    openssh-server \
+    openssh-server aria2 \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && mkdir -p /var/run/sshd /root/.ssh \
@@ -26,7 +26,7 @@ RUN git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI \
 
 WORKDIR /workspace/ComfyUI
 
-# 4. Core dependencies with --upgrade (Enables DynamicVRAM and comfy_kitchen CUDA backend)
+# 4. Core dependencies with --upgrade
 RUN pip install --no-cache-dir --upgrade -r requirements.txt \
     && pip install --no-cache-dir -r manager_requirements.txt \
     && pip install --no-cache-dir sageattention==1.0.6 huggingface_hub \
