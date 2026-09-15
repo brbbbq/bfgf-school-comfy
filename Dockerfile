@@ -29,7 +29,7 @@ WORKDIR /workspace/ComfyUI
 # 4. Core dependencies with --upgrade
 RUN pip install --no-cache-dir --upgrade -r requirements.txt \
     && pip install --no-cache-dir -r manager_requirements.txt \
-    && pip install --no-cache-dir sageattention==1.0.6 huggingface_hub hf_xet \
+    && pip install --no-cache-dir sageattention==1.0.6 huggingface_hub hf_transfer \
     && rm -rf /root/.cache
 
 # 5. Clone Custom Nodes & Lock Commits
