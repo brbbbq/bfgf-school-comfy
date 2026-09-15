@@ -10,60 +10,47 @@ mkdir -p /workspace/ComfyUI/models/diffusion_models \
          /workspace/ComfyUI/models/vae \
          /workspace/ComfyUI/models/loras
 
-# Helper function for fast multi-threaded downloads via aria2c
-download_file() {
-    local url="$1"
-    local dir="$2"
-    local filename="$3"
-    local auth_header="$4"
+# 3. Enable the Xet high-performance transfer engine globally
+export HF_XET_HIGH_PERFORMANCE=1
 
-    if [ -f "$dir/$filename" ]; then
-        echo "--> [Skipped] $filename already exists."
-    else
-        echo "--> Downloading $filename via aria2c (16 parallel connections)..."
-        if [ -n "$auth_header" ]; then
-            aria2c -x 16 -s 16 -k 1M --header="$auth_header" -d "$dir" -o "$filename" "$url"
-        else
-            aria2c -x 16 -s 16 -k 1M -d "$dir" -o "$filename" "$url"
-        fi
-    fi
-}
+echo "--> Downloading Hugging Face models via high-speed hf_xet..."
 
-HF_AUTH=""
-if [ -n "$HF_TOKEN" ]; then
-    HF_AUTH="Authorization: Bearer $HF_TOKEN"
-fi
+# We use Python here because the huggingface_hub library natively handles the hf_xet multi-threading
+python3 -c "
+import os
+from huggingface_hub import hf_hub_download
 
-# 3. Fast Parallel Downloads for Hugging Face Models
+def get_hf_model(repo_id, filename, target_dir):
+    print(f'Downloading {os.path.basename(filename)}...')
+    try:
+        # This utilizes hf_xet to pull at maximum datacenter gigabit speeds
+        cached_path = hf_hub_download(
+            repo_id=repo_id, 
+            filename=filename, 
+            token=os.environ.get('HF_TOKEN')
+        )
+        # Symlink the file from the cache to the ComfyUI folder (Takes 0 seconds, uses no extra disk space)
+        target_path = os.path.join(target_dir, os.path.basename(filename))
+        if not os.path.exists(target_path):
+            os.symlink(cached_path, target_path)
+        print(f'Ready: {target_path}')
+    except Exception as e:
+        print(f'Error downloading {filename}: {e}')
+
 # [1/4] FLUX.2 Klein 9B FP8
-download_file \
-    "https://huggingface.co/black-forest-labs/FLUX.2-klein-9b-fp8/resolve/main/flux-2-klein-9b-fp8.safetensors" \
-    "/workspace/ComfyUI/models/diffusion_models" \
-    "flux-2-klein-9b-fp8.safetensors" \
-    "$HF_AUTH"
+get_hf_model('black-forest-labs/FLUX.2-klein-9b-fp8', 'flux-2-klein-9b-fp8.safetensors', '/workspace/ComfyUI/models/diffusion_models')
 
 # [2/4] Qwen 3 Text Encoder
-download_file \
-    "https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-9b/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors" \
-    "/workspace/ComfyUI/models/text_encoders" \
-    "qwen_3_8b_fp8mixed.safetensors" \
-    "$HF_AUTH"
+get_hf_model('Comfy-Org/vae-text-encorder-for-flux-klein-9b', 'split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors', '/workspace/ComfyUI/models/text_encoders')
 
 # [3/4] FLUX.2 VAE
-download_file \
-    "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors" \
-    "/workspace/ComfyUI/models/vae" \
-    "flux2-vae.safetensors" \
-    "$HF_AUTH"
+get_hf_model('Comfy-Org/flux2-dev', 'split_files/vae/flux2-vae.safetensors', '/workspace/ComfyUI/models/vae')
 
 # [4/4] Klein Consistency LoRA
-download_file \
-    "https://huggingface.co/dx8152/Flux2-Klein-9B-Consistency/resolve/main/Klein-consistency.safetensors" \
-    "/workspace/ComfyUI/models/loras" \
-    "Klein-consistency.safetensors" \
-    "$HF_AUTH"
+get_hf_model('dx8152/Flux2-Klein-9B-Consistency', 'Klein-consistency.safetensors', '/workspace/ComfyUI/models/loras')
+"
 
-# 4. Download Civitai Pulpkhor LoRA with aria2c
+# 4. Download Civitai Pulpkhor LoRA (Civitai allows aria2c)
 PULPKHOR_FILE="/workspace/ComfyUI/models/loras/flux2-klein-9b-retro-comic-pulpkhor.safetensors"
 if [ ! -f "$PULPKHOR_FILE" ]; then
     echo "--> Downloading Pulpkhor LoRA from Civitai via aria2c..."
