@@ -36,7 +36,7 @@ RUN npm install \
     && rm -rf node_modules /root/.npm
 
 # 6. Setup your Model Download Script
-COPY start.sh /workspace/start-models.sh
+COPY start-models.sh /workspace/start-models.sh
 RUN chmod +x /workspace/start-models.sh
 
 # Return to workspace
