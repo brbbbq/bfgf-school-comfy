@@ -1,16 +1,27 @@
 #!/bin/bash
 echo "Starting model downloads..."
 
-# 1. Ensure target directories exist
-mkdir -p /workspace/ComfyUI/models/diffusion_models \
-         /workspace/ComfyUI/models/text_encoders \
-         /workspace/ComfyUI/models/vae \
-         /workspace/ComfyUI/models/loras
+# 1. Check if ComfyUI hasn't been set up in workspace yet, copy it first
+if [ ! -f "/workspace/ComfyUI/main.py" ]; then
+    if [ -d "/opt/ComfyUI" ]; then
+        cp -rn /opt/ComfyUI /workspace/
+    else
+        git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI
+    fi
+fi
+
+# Then create your model directories if they don't exist
+mkdir -p /workspace/ComfyUI/models/diffusion_models
+mkdir -p /workspace/ComfyUI/models/text_encoders
+mkdir -p /workspace/ComfyUI/models/vae
+mkdir -p /workspace/ComfyUI/models/loras
+
 
 # 2. Enable the Hugging Face rust-based high-speed transfer engine globally
 export HF_HUB_ENABLE_HF_TRANSFER=1
 
 echo "--> Downloading Hugging Face models via high-speed hf_transfer..."
+
 
 # 3. Your python download script goes here (Identical to your original file)
 python3 -c "
