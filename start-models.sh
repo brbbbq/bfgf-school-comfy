@@ -1,21 +1,13 @@
 #!/bin/bash
 echo "=== Starting Vast ComfyUI Setup ==="
 
-# 1. Locate ComfyUI in the base image and copy it to workspace if not present
+# 1. If main.py isn't in /workspace/ComfyUI, safely merge core ComfyUI into it
 if [ ! -f "/workspace/ComfyUI/main.py" ]; then
-    echo "ComfyUI not found in /workspace. Restoring from base image..."
-    
-    # Check common locations where Vast keeps ComfyUI
-    if [ -d "/opt/ComfyUI" ]; then
-        cp -rn /opt/ComfyUI/* /workspace/ComfyUI/ 2>/dev/null || cp -rn /opt/ComfyUI /workspace/
-    elif [ -d "/opt/comfyui" ]; then
-        cp -rn /opt/comfyui/* /workspace/ComfyUI/ 2>/dev/null || cp -rn /opt/comfyui /workspace/
-    elif [ -d "/ComfyUI" ]; then
-        cp -rn /ComfyUI/* /workspace/ComfyUI/ 2>/dev/null || cp -rn /ComfyUI /workspace/
-    else
-        echo "Base ComfyUI not found in image, cloning fresh..."
-        git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI
-    fi
+    echo "Restoring ComfyUI core files..."
+    git clone https://github.com/comfyanonymous/ComfyUI.git /tmp/ComfyUI_core
+    cp -rn /tmp/ComfyUI_core/* /workspace/ComfyUI/
+    cp -n /tmp/ComfyUI_core/.* /workspace/ComfyUI/ 2>/dev/null || true
+    rm -rf /tmp/ComfyUI_core
 fi
 
 # 2. Ensure target model directories exist
@@ -58,8 +50,7 @@ get_hf_model('jhsu/flux2_retro_comic_style', 'FLUX.2-klein-9B_Retro_comic_PULPKH
 
 echo "Model downloads complete!"
 
-# 4. REVIVE COMFYUI IN SUPERVISOR
-# Since supervisor died while waiting for the files, tell supervisor to restart it now!
+# 4. Revive ComfyUI
 echo "Restarting ComfyUI service..."
 supervisorctl update
 supervisorctl restart comfyui || supervisorctl start comfyui
