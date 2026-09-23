@@ -1,21 +1,18 @@
 #!/bin/bash
-echo "Starting container setup..."
+echo "Starting model downloads..."
 
-# 1. Start OpenSSH Server
-service ssh start
-
-# 2. Ensure target directories exist
+# 1. Ensure target directories exist
 mkdir -p /workspace/ComfyUI/models/diffusion_models \
          /workspace/ComfyUI/models/text_encoders \
          /workspace/ComfyUI/models/vae \
          /workspace/ComfyUI/models/loras
 
-# 3. Enable the Hugging Face rust-based high-speed transfer engine globally
+# 2. Enable the Hugging Face rust-based high-speed transfer engine globally
 export HF_HUB_ENABLE_HF_TRANSFER=1
 
 echo "--> Downloading Hugging Face models via high-speed hf_transfer..."
 
-# We use Python here because the huggingface_hub library natively handles the multi-threading
+# 3. Your python download script goes here (Identical to your original file)
 python3 -c "
 import os
 from huggingface_hub import hf_hub_download
@@ -52,8 +49,4 @@ get_hf_model('dx8152/Flux2-Klein-9B-Consistency', 'Klein-consistency.safetensors
 # [5/5] Retro Comic Pulpkhor LoRA (Hosted on your Hugging Face)
 get_hf_model('jhsu/flux2_retro_comic_style', 'FLUX.2-klein-9B_Retro_comic_PULPKHOR_STYLE.safetensors', '/workspace/ComfyUI/models/loras')
 "
-
-# 4. Launch ComfyUI
-echo "Starting ComfyUI..."
-cd /workspace/ComfyUI
-python3 main.py --listen 0.0.0.0 --port 8080 --enable-manager
+echo "Model downloads complete!"
